@@ -276,12 +276,12 @@ function ResultsContent() {
                                         Talent <br />
                                         <span className="gradient-text italic text-4xl md:text-7xl">Intelligence.</span>
                                     </h1>
-                                    <div className="flex items-center gap-4 pt-4 border-t border-slate-100 text-slate-400 font-bold text-sm">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pt-4 border-t border-slate-100 text-slate-400 font-bold text-sm">
                                         <div className="flex items-center gap-2 text-slate-900">
                                             <Mail size={16} className="text-primary" />
                                             {userEmail}
                                         </div>
-                                        <div className="h-4 w-[1px] bg-slate-200" />
+                                        <div className="hidden sm:block h-4 w-[1px] bg-slate-200" />
                                         <span>Issue: {new Date().toLocaleDateString()}</span>
                                     </div>
                                 </div>
