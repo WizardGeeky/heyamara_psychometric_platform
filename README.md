@@ -7,7 +7,7 @@ A modern, intelligent psychometric assessment platform built with Next.js that a
 - **🧠 Multi-Dimensional Analysis**: Comprehensive assessment across 4 key dimensions with 12 carefully crafted questions
 - **📊 Real-Time Results**: Dynamic score calculation with visual radar charts and detailed breakdowns
 - **📧 Email Notifications**: Beautiful HTML email templates sent to users with their results and report link
-- **💾 Data Persistence**: User progress saved in JSONL format with resume capability
+- **💾 Data Persistence**: User progress saved in Redis with automatic resume capability - works on any platform!
 - **📱 Mobile-First Design**: Fully responsive interface optimized for all devices
 - **🎨 Premium UI/UX**: Modern glassmorphism design with smooth animations
 - **📄 PDF Export**: Generate professional PDF reports with assessment data
@@ -40,7 +40,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` with your email credentials:
+Edit `.env.local` with your configuration:
 ```env
 # Email Configuration
 SMTP_HOST=smtp.gmail.com
@@ -51,7 +51,12 @@ EMAIL_FROM=HeyAmara Assessment <noreply@heyamara.ai>
 
 # Application
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Redis Database - Get from Redis Cloud, Upstash, or any Redis provider
+REDIS_URL=redis://default:your-password@your-redis-host:port
 ```
+
+**Important**: You need a Redis database for data persistence. See [START_HERE.md](./START_HERE.md) for setup instructions.
 
 4. Run the development server
 ```bash
@@ -65,7 +70,7 @@ npm run dev
 ```
 ├── app/
 │   ├── api/              # API routes
-│   │   ├── user/         # User data management
+│   │   ├── user/         # User data management (Redis)
 │   │   └── send-email/   # Email sending endpoint
 │   ├── test/             # Assessment page
 │   ├── results/          # Results display page
@@ -75,10 +80,10 @@ npm run dev
 │   └── Results/          # Results visualization components
 ├── lib/
 │   ├── psychometric-engine.ts  # Core assessment logic
+│   ├── storage.ts        # Redis storage layer
 │   └── email.ts          # Email service
 ├── data/
-│   ├── questions.json    # Assessment questions (editable)
-│   └── results.jsonl     # User results storage
+│   └── questions.json    # Assessment questions (editable)
 └── public/               # Static assets
 ```
 
@@ -150,6 +155,7 @@ function getScoreLabel(score: number): string {
 - **Email**: Nodemailer
 - **PDF**: jsPDF + jsPDF-AutoTable
 - **Icons**: Lucide React
+- **Storage**: Redis (ioredis)
 
 ## 📧 Email Configuration
 
@@ -217,9 +223,14 @@ For development, consider using:
 
 ## 🚢 Deployment
 
-### Quick Deploy to Vercel
+### Deploy to Vercel
 
-1. **Push to GitHub**:
+1. **Set up Redis Database** (REQUIRED):
+   - Create a free Redis database at [Redis Cloud](https://redis.com/try-free/) or [Upstash](https://upstash.com/)
+   - Copy your `REDIS_URL` connection string
+   - See [START_HERE.md](./START_HERE.md) for detailed instructions
+
+2. **Push to GitHub**:
    ```bash
    git init
    git add .
@@ -227,21 +238,76 @@ For development, consider using:
    # Create a repo on GitHub and follow instructions to push
    ```
 
-2. **Connect to Vercel**:
+3. **Connect to Vercel**:
    - Go to [vercel.com](https://vercel.com)
    - Click "Add New" > "Project"
    - Import your repository
-   - Vercel will automatically detect Next.js and apply correct build settings
-   - **Add Environment Variables** in Vercel project settings:
-     - `SMTP_HOST`
-     - `SMTP_PORT`
-     - `SMTP_USER`
-     - `SMTP_PASS`
-     - `EMAIL_FROM`
-     - `NEXT_PUBLIC_APP_URL`
+   - Vercel will automatically detect Next.js
+
+4. **Configure Environment Variables**:
+   In Vercel project settings, add:
+   - `REDIS_URL` - Your Redis connection string
+   - `SMTP_HOST`
+   - `SMTP_PORT`
+   - `SMTP_USER`
+   - `SMTP_PASS`
+   - `EMAIL_FROM`
+   - `NEXT_PUBLIC_APP_URL` - Your Vercel URL
+
+5. **Deploy**:
    - Click **Deploy**
+   - Wait for deployment to complete
+   - Test with a real email to ensure data persistence works
+
+⚠️ **Critical**: Without Redis, user data will NOT persist!
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=<your-repo-url>)
+
+### Storage Architecture
+
+This application uses **Redis** for persistent data storage, compatible with any Redis provider (Redis Cloud, Upstash, etc.).
+
+#### Why Redis?
+
+**The Problem with File System Storage:**
+- ❌ Serverless functions have **ephemeral file systems**
+- ❌ Files written during one request are **lost** after execution
+- ❌ Each deployment creates a **new instance** with no previous data
+- ❌ Works locally but **fails in production**
+
+**The Solution - Redis:**
+- ✅ **Persistent storage** that survives deployments
+- ✅ **Fast** read/write operations
+- ✅ **Serverless-friendly** with network-based access
+- ✅ **Scalable** to handle concurrent users
+- ✅ **Free tier** available from multiple providers
+
+#### Data Flow
+
+1. **User submits email** → Check if user exists in Redis
+2. **Existing user** → Load progress and redirect to results if completed
+3. **New user** → Create new record in Redis
+4. **During assessment** → Auto-save progress to Redis after each question
+5. **On completion** → Save final scores to Redis and send email
+6. **Return visit** → Load existing data from Redis and show results
+
+#### Key Functions
+
+```typescript
+// Get user by email
+const user = await getUserByEmail(email);
+
+// Save/update user data
+await saveUser({
+  email,
+  responses,
+  isCompleted,
+  timestamp,
+  scores
+});
+```
+
+For detailed setup instructions, see [START_HERE.md](./START_HERE.md).
 
 ### Local Development
 
